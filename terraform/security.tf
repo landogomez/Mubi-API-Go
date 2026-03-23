@@ -4,6 +4,14 @@ resource "aws_security_group" "api_sg" {
   description = "Permite trafico HTTP para la API"
   vpc_id      = aws_vpc.main_vpc.id
 
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Esto permite que entres desde cualquier IP
+  }
+
   # Entrada: Permitir puerto 3000 desde cualquier lugar (Internet)
   ingress {
     from_port   = 3000

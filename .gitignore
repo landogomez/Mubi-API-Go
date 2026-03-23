@@ -18,3 +18,7 @@ app-backend/.env
 # --- SISTEMA ---
 .DS_Store
 node_modules/
+
+*.pem
+vendor/
+bin/

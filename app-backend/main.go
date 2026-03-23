@@ -1,19 +1,19 @@
 package main
 
 import (
-	dataebase "go-fiber-api/database"
+	"go-fiber-api/database"
 	"go-fiber-api/models"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
-	dataebase.Connect()
+	database.Connect()
 	app := fiber.New()
 
 	app.Get("/api/movies", func(c *fiber.Ctx) error {
 		var movies []models.Movie
-		dataebase.DB.Find(&movies)
+		database.DB.Find(&movies)
 		return c.JSON(movies)
 	})
 
@@ -26,7 +26,7 @@ func main() {
 		}
 
 		// Guardar en Postgres usando GORM
-		if err := dataebase.DB.Create(&movie).Error; err != nil {
+		if err := database.DB.Create(&movie).Error; err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "No se pudo guardar"})
 		}
 

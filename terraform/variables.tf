@@ -5,22 +5,22 @@ variable "aws_profile" {
 }
 
 variable "project_name" {
-  default = "Muvi"
+  default = "muvi"
 }
 
 variable "db_username" {
-    type = string
-    sensitive = true
+  type      = string
+  sensitive = true
 }
 
 variable "db_password" {
-    type = string
-    sensitive = true
+  type      = string
+  sensitive = true
 }
 
 variable "aws_region" {
-    type = string
-    default = "us-east-1"
+  type    = string
+  default = "us-east-1"
 }
 
 variable "vpc_cidr" {
