@@ -1,0 +1,37 @@
+---
+// Código que se ejecuta en el servidor al compilar
+
+import '../styles/global.css';
+const res = await fetch('http://52.90.181.148:3000/api/movies');
+const movies = await res.json();
+---
+
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<title>Mubi Tribute | Jorge</title>
+	</head>
+	<body class="bg-black text-white font-sans">
+		<main class="max-w-6xl mx-auto p-8">
+			<h1 class="text-6xl font-black uppercase tracking-tighter mb-12 border-b-4 border-red-600 inline-block">
+				Wong Kar-wai Tribute
+			</h1>
+
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+				{movies.map((movie) => (
+					<div class="group cursor-pointer">
+						<div class="overflow-hidden bg-gray-900 aspect-[2/3] mb-4">
+							<img 
+								src={movie.poster_url || "https://via.placeholder.com/400x600?text=No+Poster"} 
+								alt={movie.title}
+								class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100"
+							/>
+						</div>
+						<h2 class="text-2xl font-bold uppercase leading-none">{movie.title}</h2>
+						<p class="text-red-600 font-mono text-sm mt-1">{movie.director} — {movie.year}</p>
+					</div>
+				))}
+			</div>
+		</main>
+	</body>
+</html>

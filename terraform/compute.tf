@@ -19,6 +19,7 @@ resource "aws_instance" "api_server" {
   associate_public_ip_address = true
 
   key_name = "muvi-key"
+  iam_instance_profile = aws_iam_instance_profile.muvi_profile.name
 
   # Script de inicio (User Data) para instalar Go y Docker de una vez
   user_data = <<-EOF
