@@ -1,0 +1,20 @@
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+
+# Ignorar valores reales y secretos
+terraform/*.tfvars
+terraform/*.tfvars.json
+
+# --- APP-BACKEND (Go) ---
+# Ignorar el binario compilado
+app-backend/main
+app-backend/app-backend
+
+# Ignorar variables de entorno locales
+app-backend/.env
+
+# --- SISTEMA ---
+.DS_Store
+node_modules/
