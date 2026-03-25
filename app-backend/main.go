@@ -1,6 +1,7 @@
 package main
 
 import (
+	"go-fiber-api/controllers"
 	"go-fiber-api/database"
 	"go-fiber-api/models"
 	"os"
@@ -86,6 +87,9 @@ func main() {
 
 		return c.Status(200).JSON(fiber.Map{"message": "Película eliminada con éxito"})
 	})
+
+	// Ejemplo de registro de ruta en Fiber
+	app.Get("/api/upload-url", controllers.GetUploadURL)
 
 	app.Listen(":3000")
 }

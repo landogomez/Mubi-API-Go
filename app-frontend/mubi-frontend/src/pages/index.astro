@@ -14,9 +14,19 @@ const movies = await res.json();
 		<main class="max-w-7xl mx-auto px-6 py-20">
 			
 			<header class="mb-24 flex flex-col items-center text-center">
-				<h1 class="text-3xl md:text-5xl font-black uppercase tracking-[0.25em] text-stone-100 mb-6">
+				<h1 
+					onclick="loginAdmin()"
+					class="text-3xl md:text-5xl font-black uppercase tracking-[0.25em] text-stone-100 mb-6">
 					Tops de Orlando
 				</h1>
+				<div class="admin-controls hidden justify-center mb-16">
+					<button 
+						onclick="document.getElementById('add-movie-modal').showModal()"
+						class="border border-stone-100 px-8 py-3 uppercase tracking-[0.2em] text-[0.7rem] font-bold hover:bg-stone-100 hover:text-zinc-950 transition-all duration-500"
+					>
+						+ Añadir a la Colección
+					</button>
+				</div>
 				<div class="h-[2px] w-16 bg-[#b33939] opacity-80"></div>
 			</header>
 
@@ -25,7 +35,6 @@ const movies = await res.json();
 					<div class="group cursor-pointer flex flex-col">
 						
 						<div class="relative overflow-hidden bg-zinc-900 aspect-[2/3] shadow-2xl border border-white/5">
-							
 							<img 
 								src={movie.poster_url || "https://via.placeholder.com/400x600?text=No+Poster"} 
 								alt={movie.title}
@@ -43,11 +52,169 @@ const movies = await res.json();
 							<p class="mt-4 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-[#b33939]">
 								{movie.director} <span class="mx-3 text-zinc-700">|</span> {movie.year}
 							</p>
+
+							{/* --- ESTO ES LO QUE FALTABA: Los controles por tarjeta --- */}
+							<div class="admin-controls hidden gap-6 mt-6 border-t border-white/5 pt-4 w-full justify-center">
+								<button 
+									class="text-[0.6rem] font-mono uppercase tracking-widest text-stone-400 hover:text-white transition"
+									onclick={`alert('Próximamente: Editar ID ${movie.id}')`}
+								>
+									Editar
+								</button>
+								<button 
+									class="text-[0.6rem] font-mono uppercase tracking-widest text-[#b33939] hover:text-red-500 transition"
+									onclick={`deleteMovie(${movie.id})`}
+								>
+									Borrar
+								</button>
+							</div>
 						</div>
 
 					</div>
 				))}
 			</div>
 		</main>
+		<script is:inline>
+			// 1. Al cargar la página, revisamos si ya "te conoces" la contraseña
+			const savedKey = localStorage.getItem('mubi_admin_key');
+			
+			if (savedKey) {
+				document.querySelectorAll('.admin-controls').forEach(el => {
+					el.classList.remove('hidden');
+					el.classList.add('flex');
+				});
+			}
+
+			// 2. La función de Login (El Prompt)
+			window.loginAdmin = () => {
+				const password = prompt("Introduce la llave del Director:");
+				if (password) {
+					localStorage.setItem('mubi_admin_key', password);
+					alert("Acceso concedido, Jorge.");
+					location.reload();
+				}
+			};
+
+			// 3. La función de Borrar (La que habla con Go)
+			async function deleteMovie(id) {
+				if (!confirm('¿Confirmas que deseas eliminar esta obra de la colección?')) return;
+				const key = localStorage.getItem('mubi_admin_key');
+
+				try {
+					const response = await fetch(`http://52.90.181.148:3000/api/movies/${id}`, {
+						method: 'DELETE',
+						headers: { 'X-API-KEY': key }
+					});
+
+					if (response.ok) {
+						alert('Película eliminada.');
+						location.reload();
+					} else {
+						const errData = await response.json();
+						alert('Error: ' + errData.error);
+					}
+				} catch (error) {
+					alert('No se pudo conectar con la API en AWS.');
+				}
+			}
+
+			window.deleteMovie = deleteMovie;
+			async function uploadToS3(file) {
+				const key = localStorage.getItem('mubi_admin_key');
+				
+				// A. Pedir la URL firmada a tu backend de Go
+				const urlRes = await fetch(`http://52.90.181.148:3000/api/upload-url?file=${encodeURIComponent(file.name)}`, {
+					headers: { 'X-API-KEY': key }
+				});
+				
+				if (!urlRes.ok) throw new Error('Error al obtener URL de subida');
+				const { upload_url, public_url } = await urlRes.json();
+
+				// B. Subir el archivo DIRECTAMENTE a S3 usando el método PUT
+				const s3Res = await fetch(upload_url, {
+					method: 'PUT',
+					body: file,
+					headers: { 'Content-Type': file.type }
+				});
+
+				if (!s3Res.ok) throw new Error('Error al subir imagen a S3');
+
+				return public_url; // Esta es la URL que guardaremos en la DB
+			}
+
+			// --- NUEVO: Manejador para el formulario de Añadir Película ---
+			// Este código se ejecuta cuando le das a "Guardar" en el modal
+			document.getElementById('add-movie-form')?.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const btn = e.target.querySelector('button[type="submit"]');
+				btn.innerText = "SUBIENDO...";
+				btn.disabled = true;
+
+				try {
+					const fileInput = document.getElementById('poster-file');
+					const file = fileInput.files[0];
+
+					// 1. Subir la imagen y obtener la URL de Amazon
+					const s3PublicUrl = await uploadToS3(file);
+
+					// 2. Preparar los datos para la DB
+					const formData = new FormData(e.target);
+					const movieData = {
+						title: formData.get('title'),
+						director: formData.get('director'),
+						year: parseInt(formData.get('year')),
+						summary: formData.get('summary'),
+						poster_url: s3PublicUrl, // <--- LA URL DE TU S3
+						is_featured: true
+					};
+
+					const key = localStorage.getItem('mubi_admin_key');
+
+					// 3. Guardar en PostgreSQL vía Go
+					const res = await fetch('http://52.90.181.148:3000/api/movies', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-API-KEY': key
+						},
+						body: JSON.stringify(movieData)
+					});
+
+					if (res.ok) {
+						alert('Obra añadida con éxito a la nube.');
+						location.reload();
+					}
+				} catch (err) {
+					alert('Fallo en el sistema: ' + err.message);
+				} finally {
+					btn.innerText = "GUARDAR";
+					btn.disabled = false;
+				}
+			});
+		</script>
 	</body>
+		<dialog id="add-movie-modal" class="bg-zinc-950 text-stone-200 border border-white/10 p-10 backdrop:blur-sm max-w-lg w-full">
+		<form id="add-movie-form" class="flex flex-col gap-6">
+			<h3 class="text-2xl font-black uppercase tracking-widest mb-4">Nueva Obra</h3>
+			
+			<input type="text" name="title" placeholder="TÍTULO" required class="bg-transparent border-b border-stone-800 p-2 focus:border-[#b33939] outline-none font-mono text-sm" />
+			<input type="text" name="director" placeholder="DIRECTOR" required class="bg-transparent border-b border-stone-800 p-2 focus:border-[#b33939] outline-none font-mono text-sm" />
+			<input type="number" name="year" placeholder="AÑO" required class="bg-transparent border-b border-stone-800 p-2 focus:border-[#b33939] outline-none font-mono text-sm" />
+			<textarea name="summary" placeholder="SINOPSIS" required class="bg-transparent border-b border-stone-800 p-2 focus:border-[#b33939] outline-none font-mono text-sm h-24"></textarea>
+			<div class="flex flex-col gap-2">
+				<label class="text-[0.6rem] uppercase tracking-widest opacity-50">Póster de la película</label>
+				<input 
+					type="file" 
+					id="poster-file" 
+					accept="image/*" 
+					required 
+					class="bg-transparent border-b border-stone-800 p-2 focus:border-[#b33939] outline-none font-mono text-sm file:bg-zinc-800 file:border-none file:text-stone-200 file:text-[0.6rem] file:uppercase file:px-4 file:py-1 file:mr-4 file:cursor-pointer" 
+				/>
+			</div>
+			<div class="flex justify-end gap-6 mt-6">
+				<button type="button" onclick="document.getElementById('add-movie-modal').close()" class="text-[0.6rem] uppercase tracking-widest opacity-50 hover:opacity-100">Cancelar</button>
+				<button type="submit" class="bg-[#b33939] px-6 py-2 text-[0.6rem] uppercase tracking-widest font-bold">Guardar</button>
+			</div>
+		</form>
+	</dialog>
 </html>
