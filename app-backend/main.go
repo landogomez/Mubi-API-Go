@@ -3,9 +3,26 @@ package main
 import (
 	"go-fiber-api/database"
 	"go-fiber-api/models"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+func AuthMiddleware(c *fiber.Ctx) error {
+	apiKey := c.Get("X-API-KEY")
+	expectedKey := os.Getenv("ADMIN_API_KEY")
+
+	// Protección extra: Si a ti se te olvida configurar la variable en el servidor
+	if expectedKey == "" {
+		return c.Status(500).JSON(fiber.Map{"error": "Error interno del servidor (Falta API Key)"})
+	}
+
+	if apiKey != expectedKey {
+		return c.Status(401).JSON(fiber.Map{"error": "No autorizado. Solo el admin puede editar."})
+	}
+
+	return c.Next()
+}
 
 func main() {
 	database.Connect()
@@ -17,7 +34,7 @@ func main() {
 		return c.JSON(movies)
 	})
 
-	app.Post("/api/movies", func(c *fiber.Ctx) error {
+	app.Post("/api/movies", AuthMiddleware, func(c *fiber.Ctx) error {
 		movie := new(models.Movie)
 
 		// Parsear el JSON del cuerpo de la petición
@@ -33,7 +50,7 @@ func main() {
 		return c.Status(201).JSON(movie)
 	})
 	// --- MÉTODO PUT PARA EDITAR ---
-	app.Put("/api/movies/:id", func(c *fiber.Ctx) error {
+	app.Put("/api/movies/:id", AuthMiddleware, func(c *fiber.Ctx) error {
 		id := c.Params("id")
 		var movie models.Movie
 
@@ -53,7 +70,7 @@ func main() {
 		return c.JSON(movie)
 	})
 	// --- MÉTODO DELETE PARA ELIMINAR ---
-	app.Delete("/api/movies/:id", func(c *fiber.Ctx) error {
+	app.Delete("/api/movies/:id", AuthMiddleware, func(c *fiber.Ctx) error {
 		id := c.Params("id")
 		var movie models.Movie
 
