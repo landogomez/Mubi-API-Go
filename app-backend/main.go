@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func AuthMiddleware(c *fiber.Ctx) error {
@@ -28,6 +29,19 @@ func AuthMiddleware(c *fiber.Ctx) error {
 func main() {
 	database.Connect()
 	app := fiber.New()
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept, X-API-KEY",
+		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
+	}))
+
+	// --- 2. RUTAS PÚBLICAS ---
+	app.Get("/api/movies", func(c *fiber.Ctx) error {
+		var movies []models.Movie
+		database.DB.Find(&movies)
+		return c.JSON(movies)
+	})
 
 	app.Get("/api/movies", func(c *fiber.Ctx) error {
 		var movies []models.Movie
